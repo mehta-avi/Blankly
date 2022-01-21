@@ -31,7 +31,7 @@
         }
     },
     "kucoin": {
-        "ftx cool portfolio": {
+        "kucoin cool portfolio": {
             "API_KEY": "********************",
             "API_SECRET": "****************************************"
         }
