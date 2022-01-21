@@ -20,6 +20,12 @@
     },
     "oanda": {
       "cash": "USD"
+    },
+    "ftx": {
+      "cash": "USDT"
+    },
+    "kucoin": {
+      "cash": "USDT"
     }
   }
 }
