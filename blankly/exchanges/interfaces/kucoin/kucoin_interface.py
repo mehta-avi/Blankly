@@ -15,8 +15,7 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
-
+import json
 import time
 
 import pandas as pd
@@ -113,6 +112,7 @@ class KucoinInterface(ExchangeInterface):
               }
         """
         accounts = self._user.get_account_list()
+        accounts = self.__correct_api_call(accounts)
         trade_accounts = []
         # Filter for only the trade accounts
         for i in accounts:
@@ -150,6 +150,22 @@ class KucoinInterface(ExchangeInterface):
                 raise KeyError(f'Could not find account for asset {symbol}')
 
         return parsed_dictionary
+
+    @staticmethod
+    def __correct_api_call(response):
+        if isinstance(response, dict):
+            if 'code' in response:
+                if response['code'] == "200000":
+                    return response['data']
+                else:
+                    try:
+                        raise APIException(response['msg'])
+                    except KeyError:
+                        raise KeyError("Query failed but no exchange message found.")
+            else:
+                return response
+        else:
+            return response
 
     @utils.order_protection
     def market_order(self, symbol, side, size) -> MarketOrder:
