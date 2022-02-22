@@ -55,6 +55,22 @@ class KucoinInterface(ExchangeInterface):
         except KeyError:
             pass
 
+    @staticmethod
+    def __correct_api_call(response):
+        if isinstance(response, dict):
+            if 'code' in response:
+                if response['code'] == "200000":
+                    return response['data']
+                else:
+                    try:
+                        raise APIException(response['msg'])
+                    except KeyError:
+                        raise KeyError("Query failed but no exchange message found.")
+            else:
+                return response
+        else:
+            return response
+
     def get_products(self):
         needed = self.needed['get_products']
         """
@@ -79,6 +95,7 @@ class KucoinInterface(ExchangeInterface):
         ]
         """
         products = self._market.get_symbol_list()
+        products = self.__correct_api_call(products)
         for i in range(len(products)):
             products[i]["base_asset"] = products[i].pop("baseCurrency")
             products[i]["quote_asset"] = products[i].pop("quoteCurrency")
@@ -151,22 +168,6 @@ class KucoinInterface(ExchangeInterface):
 
         return parsed_dictionary
 
-    @staticmethod
-    def __correct_api_call(response):
-        if isinstance(response, dict):
-            if 'code' in response:
-                if response['code'] == "200000":
-                    return response['data']
-                else:
-                    try:
-                        raise APIException(response['msg'])
-                    except KeyError:
-                        raise KeyError("Query failed but no exchange message found.")
-            else:
-                return response
-        else:
-            return response
-
     @utils.order_protection
     def market_order(self, symbol, side, size) -> MarketOrder:
         """
@@ -190,6 +191,7 @@ class KucoinInterface(ExchangeInterface):
         }
 
         response = self._trade.create_market_order(symbol, side, size=size)
+        response = self.__correct_api_call(response)
         if "msg" in response:
             raise InvalidOrder("Invalid Order: " + response["msg"])
 
@@ -254,10 +256,12 @@ class KucoinInterface(ExchangeInterface):
             'type': 'limit',
         }
         response = self._trade.create_limit_order(symbol, side, size, price)
+        response = self.__correct_api_call(response)
         if "msg" in response:
             raise InvalidOrder("Invalid Order: " + response["msg"])
 
         response_details = self._trade.get_order_details(response['orderId'])
+        response_details = self.__correct_api_call(response_details)
         """
                {
                    "id": "5c35c02703aa673ceec2a168", //
@@ -309,7 +313,7 @@ class KucoinInterface(ExchangeInterface):
            dict: Containing the order_id of cancelled order. Example::
            { "cancelledOrderIds": ["c5ab5eae-76be-480e-8961-00792dc7e138"]}
         """
-        return {"order_id": self._trade.cancel_order(order_id)['cancelledOrderIds'][0]}
+        return {"order_id": self.__correct_api_call(self._trade.cancel_order(order_id)['cancelledOrderIds'][0])}
 
     def get_open_orders(self, symbol=None):
         """
@@ -358,9 +362,9 @@ class KucoinInterface(ExchangeInterface):
          }
         """
         if symbol is None:
-            open_orders = list(self._trade.get_order_list(status='active')["items"])
+            open_orders = list(self.__correct_api_call(self._trade.get_order_list(status='active')["items"]))
         else:
-            open_orders = list(self._trade.get_order_list(status='active', symbol=symbol)["items"])
+            open_orders = list(self.__correct_api_call(self._trade.get_order_list(status='active', symbol=symbol)["items"]))
 
         if len(open_orders) == 0:
             return []
@@ -418,6 +422,7 @@ class KucoinInterface(ExchangeInterface):
         }
         """
         response = self._trade.get_order_details(order_id)
+        response = self.__correct_api_call(response)
 
         if 'msg' in response:
             raise APIException("Invalid: " + str(response['msg']) + ", was the order canceled?")
@@ -454,6 +459,7 @@ class KucoinInterface(ExchangeInterface):
             }
         """
         fees = self._user.get_base_fee()
+        fees = self.__correct_api_call(fees)
         fees["taker_fee_rate"] = fees.pop('takerFeeRate')
         fees["maker_fee_rate"] = fees.pop('makerFeeRate')
         return utils.isolate_specific(needed, fees)
@@ -470,7 +476,7 @@ class KucoinInterface(ExchangeInterface):
         elif isinstance(to, int):
             epoch_start = epoch_stop - (to * resolution)
 
-        return self.get_product_history(symbol, epoch_start, epoch_stop, resolution)
+        return self.__correct_api_call(self.get_product_history(symbol, epoch_start, epoch_stop, resolution))
 
     def get_product_history(self, symbol, epoch_start, epoch_stop, resolution):
         """
@@ -527,6 +533,7 @@ class KucoinInterface(ExchangeInterface):
             window_close = int(window_open + 1500 * resolution)
             response = self._market.get_kline(symbol, gran_string,
                                               startAt=window_open, endAt=window_close)
+            response = self.__correct_api_call(response)
             if isinstance(response, dict):
                 raise APIException(response['msg'])
             history = history + response
@@ -539,6 +546,7 @@ class KucoinInterface(ExchangeInterface):
         # Fill the remainder
         response = self._market.get_kline(symbol, gran_string,
                                           startAt=window_open, endAt=epoch_stop)
+        response = self.__correct_api_call(response)
         if isinstance(response, dict):
             raise APIException(response['msg'])
 
@@ -586,6 +594,7 @@ class KucoinInterface(ExchangeInterface):
            ]
         """
         response = self._market.get_symbol_list()
+        response = self.__correct_api_call(response)
         products = None
         for i in response:
             if i["symbol"] == symbol:
@@ -654,6 +663,7 @@ class KucoinInterface(ExchangeInterface):
         }       
         """
         response = self._market.get_ticker(symbol)
+        response = self.__correct_api_call(response)
         if 'msg' in response:
             raise APIException("Error: " + response['msg'])
         return float(response['price'])
